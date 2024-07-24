@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
 **
 ** Copyright (C) 2016 The Qt Company Ltd and/or its subsidiary(-ies).
 ** Contact: https://www.qt.io/licensing/
@@ -218,6 +218,9 @@ void QWasapiAudioOutput::process()
 
 void QWasapiAudioOutput::processBuffer()
 {
+    if (m_currentState != QAudio::ActiveState && m_currentState != QAudio::IdleState)
+        return;
+
     QMutexLocker locker(&m_mutex);
 
     const quint32 channelCount = m_currentFormat.channelCount();
@@ -235,6 +238,12 @@ void QWasapiAudioOutput::processBuffer()
         emit errorChanged(m_currentError);
         // Also Error Buffers need to be released
         hr = m_renderer->ReleaseBuffer(availableFrames, 0);
+        ResetEvent(m_event);
+        return;
+    }
+
+    if(availableFrames == 0) {
+        m_renderer->ReleaseBuffer(availableFrames, 0);
         ResetEvent(m_event);
         return;
     }
@@ -299,7 +308,7 @@ bool QWasapiAudioOutput::initStart(bool pull)
 
     REFERENCE_TIME t = ((10000.0 * 10000 / nFmt.nSamplesPerSec * 1024) + 0.5);
     if (m_bufferBytes)
-        t = m_currentFormat.durationForBytes(m_bufferBytes) * 100;
+        t = m_currentFormat.durationForBytes(m_bufferBytes) * 10;
 
     DWORD flags = pull ? AUDCLNT_STREAMFLAGS_EVENTCALLBACK : 0;
     hr = m_interface->m_client->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, t, 0, &nFmt, NULL);
